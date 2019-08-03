@@ -1,0 +1,64 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://score_event_system.tscn" type="PackedScene" id=1]
+[ext_resource path="res://Graphics/TypeO.ttf" type="DynamicFontData" id=2]
+
+[sub_resource type="DynamicFont" id=1]
+size = 100
+font_data = ExtResource( 2 )
+
+[sub_resource type="GDScript" id=2]
+script/source = "extends Label
+
+var target_score = 0
+var score = 0
+
+var target_modulate = 0
+var frozen = false
+
+func _ready():
+	randomize()
+	
+func _process(delta):
+	score = lerp(score, target_score, 0.22) 
+	text = str(int(score))
+	
+	if frozen:
+		target_modulate
+	else: 
+		target_modulate = max(min(target_modulate - delta, 1), 0)
+	modulate.a = lerp(modulate.a, target_modulate, 0.1)
+
+func score_event():
+	var score_value = 47 + randi()%6
+	target_score += score_value
+	
+	target_modulate += 1
+	
+	frozen = true
+	get_node(\"Timer\").start()
+
+func _on_Timer_timeout():
+	frozen = false
+"
+
+[node name="counter8" type="Node2D"]
+
+[node name="base" parent="." instance=ExtResource( 1 )]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="counter" type="Label" parent="CanvasLayer"]
+modulate = Color( 0, 0, 0, 0 )
+margin_right = 800.0
+margin_bottom = 147.0
+custom_fonts/font = SubResource( 1 )
+text = "0"
+align = 1
+valign = 1
+script = SubResource( 2 )
+
+[node name="Timer" type="Timer" parent="CanvasLayer/counter"]
+wait_time = 0.5
+one_shot = true
+[connection signal="timeout" from="CanvasLayer/counter/Timer" to="CanvasLayer/counter" method="_on_Timer_timeout"]

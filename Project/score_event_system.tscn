@@ -1,0 +1,145 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://Graphics/arena.png" type="Texture" id=1]
+[ext_resource path="res://Graphics/player.png" type="Texture" id=2]
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends Node2D
+
+signal score_event
+
+func _ready():
+	connect(\"score_event\", get_node(\"../CanvasLayer/counter\"), \"score_event\")"
+
+[sub_resource type="RectangleShape2D" id=2]
+extents = Vector2( 83, 324 )
+
+[sub_resource type="RectangleShape2D" id=3]
+extents = Vector2( 407, 112 )
+
+[sub_resource type="GDScript" id=4]
+script/source = "extends KinematicBody2D
+
+var velocity = Vector2(0, 0)
+var SPEED = 2500
+var GRAVITY = 100
+
+func _ready():
+	pass
+
+func _physics_process(delta):
+	var movement_vector = Vector2(0, 0)
+	
+	velocity *= 0.9
+	
+	if(Input.is_action_pressed(\"ui_left\")):
+		movement_vector.x -= SPEED*delta
+	if(Input.is_action_pressed(\"ui_right\")):
+		movement_vector.x += SPEED*delta
+		
+	if !is_on_floor():
+		movement_vector.y += GRAVITY*delta
+	else:
+		movement_vector.y = min(0, movement_vector.y)
+		
+	velocity += movement_vector*0.5
+		
+	move_and_collide(movement_vector + velocity)
+	
+func _input(event):
+	if(event is InputEventMouseButton):
+		if(event.is_pressed() and event.button_index == BUTTON_LEFT):
+			shoot_bullet(get_global_mouse_position())
+			
+func shoot_bullet(at: Vector2) -> void:
+	var bullet: Bullet = load(\"res://Prefabs/bullet.tscn\").instance()
+	
+	var movement_vector = Vector2(-1, 0).rotated(position.angle_to_point(at))
+	bullet.movement_vector = movement_vector
+	bullet.position = position
+	
+	get_node(\"..\").add_child(bullet)"
+
+[sub_resource type="RectangleShape2D" id=5]
+extents = Vector2( 16, 16 )
+
+[sub_resource type="GDScript" id=6]
+script/source = "extends KinematicBody2D
+
+signal shot
+
+func _ready():
+	pass
+
+func damage():
+	get_node(\"..\").emit_signal(\"score_event\")
+	get_node(\"../Camera2D\").trauma += 0.3
+	
+	emit_signal(\"shot\")"
+
+[sub_resource type="GDScript" id=7]
+script/source = "extends Camera2D
+
+var trauma = 0
+var max_shake = 10
+
+func _ready():
+	pass 
+	
+func _process(delta):
+	trauma = min(max(0, trauma - delta*2), 1)
+	
+	offset = Vector2((2*randf() - 1)*max_shake*trauma*trauma, (2*randf() - 1)*max_shake*trauma*trauma)"
+
+[node name="base" type="Node2D"]
+script = SubResource( 1 )
+
+[node name="bg" type="StaticBody2D" parent="."]
+editor/display_folded = true
+
+[node name="bg" type="Sprite" parent="bg"]
+scale = Vector2( 10, 10 )
+texture = ExtResource( 1 )
+centered = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="bg"]
+visible = false
+position = Vector2( 76, 164 )
+shape = SubResource( 2 )
+
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="bg"]
+visible = false
+position = Vector2( 723, 164 )
+shape = SubResource( 2 )
+
+[node name="CollisionShape2D3" type="CollisionShape2D" parent="bg"]
+visible = false
+position = Vector2( 399, 582 )
+shape = SubResource( 3 )
+
+[node name="player" type="KinematicBody2D" parent="."]
+position = Vector2( 301, 454 )
+script = SubResource( 4 )
+
+[node name="Sprite" type="Sprite" parent="player"]
+texture = ExtResource( 2 )
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="player"]
+shape = SubResource( 5 )
+
+[node name="enemy" type="KinematicBody2D" parent="." groups=[
+"enemies",
+]]
+position = Vector2( 520, 454 )
+script = SubResource( 6 )
+
+[node name="Sprite" type="Sprite" parent="enemy"]
+texture = ExtResource( 2 )
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="enemy"]
+shape = SubResource( 5 )
+
+[node name="Camera2D" type="Camera2D" parent="."]
+anchor_mode = 0
+current = true
+script = SubResource( 7 )

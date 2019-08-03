@@ -1,0 +1,239 @@
+[gd_scene load_steps=13 format=2]
+
+[ext_resource path="res://Graphics/arena.png" type="Texture" id=1]
+[ext_resource path="res://Graphics/player.png" type="Texture" id=2]
+[ext_resource path="res://Graphics/TypeO.ttf" type="DynamicFontData" id=3]
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends Node2D
+
+signal score_event
+
+func _ready():
+	connect(\"score_event\", get_node(\"../CanvasLayer/counter\"), \"score_event\")"
+
+[sub_resource type="RectangleShape2D" id=2]
+extents = Vector2( 83, 324 )
+
+[sub_resource type="RectangleShape2D" id=3]
+extents = Vector2( 407, 112 )
+
+[sub_resource type="GDScript" id=4]
+script/source = "extends KinematicBody2D
+
+var velocity = Vector2(0, 0)
+var SPEED = 2500
+var GRAVITY = 100
+
+func _ready():
+	pass
+
+func _physics_process(delta):
+	var movement_vector = Vector2(0, 0)
+	
+	velocity *= 0.9
+	
+	if(Input.is_action_pressed(\"ui_left\")):
+		movement_vector.x -= SPEED*delta
+	if(Input.is_action_pressed(\"ui_right\")):
+		movement_vector.x += SPEED*delta
+		
+	if !is_on_floor():
+		movement_vector.y += GRAVITY*delta
+	else:
+		movement_vector.y = min(0, movement_vector.y)
+		
+	velocity += movement_vector*0.5
+		
+	move_and_collide(movement_vector + velocity)
+	
+func _input(event):
+	if(event is InputEventMouseButton):
+		if(event.is_pressed() and event.button_index == BUTTON_LEFT):
+			shoot_bullet(get_global_mouse_position())
+			
+func shoot_bullet(at: Vector2) -> void:
+	var bullet: Bullet = load(\"res://Prefabs/bullet.tscn\").instance()
+	
+	var movement_vector = Vector2(-1, 0).rotated(position.angle_to_point(at))
+	bullet.movement_vector = movement_vector
+	bullet.position = position
+	
+	get_node(\"..\").add_child(bullet)"
+
+[sub_resource type="RectangleShape2D" id=5]
+extents = Vector2( 16, 16 )
+
+[sub_resource type="GDScript" id=6]
+script/source = "extends KinematicBody2D
+
+signal shot
+
+func _ready():
+	pass
+
+func damage():
+	get_node(\"..\").emit_signal(\"score_event\")
+	get_node(\"../Camera2D\").trauma += 0.3*get_node(\"../../CanvasLayer/counter\").SCALE_OF_EVERYTHING
+	
+	emit_signal(\"shot\")"
+
+[sub_resource type="GDScript" id=7]
+script/source = "extends Camera2D
+
+var trauma = 0
+var max_shake = 10
+
+func _ready():
+	pass 
+	
+func _process(delta):
+	trauma = min(max(0, trauma - delta*2), get_node(\"../../CanvasLayer/counter\").SCALE_OF_EVERYTHING)
+	
+	offset = Vector2((2*randf() - 1)*max_shake*trauma*trauma, (2*randf() - 1)*max_shake*trauma*trauma)*get_node(\"../../CanvasLayer/counter\").SCALE_OF_EVERYTHING"
+
+[sub_resource type="DynamicFont" id=8]
+size = 75
+font_data = ExtResource( 3 )
+
+[sub_resource type="GDScript" id=9]
+script/source = "extends Label
+
+const SCALE_OF_EVERYTHING = 10
+
+var target_score = 0
+var score = 0
+
+var trauma = 0
+var counter_offset = Vector2(0, 0)
+var shake = 15
+
+var target_modulate = 0
+var frozen = false
+
+var stacking_score_notification = null
+var score_notification_active = false
+
+func _ready():
+	randomize()
+	
+	get_node(\"../../base/enemy\").connect(\"shot\", self, \"score_event\", [get_node(\"../../base/enemy\")])
+	
+func _process(delta):
+	
+	rect_position -= counter_offset
+	trauma = min(max(trauma - delta*1.5, 0), 1)
+	counter_offset = Vector2((2*randf() - 1)*shake*trauma*trauma, (2*randf() - 1)*shake*trauma*trauma)*SCALE_OF_EVERYTHING
+	rect_position += counter_offset
+	
+	score = lerp(score, target_score, 0.22)
+	text = str(int(score))
+	
+	if frozen:
+		target_modulate
+	else: 
+		target_modulate = max(min(target_modulate - delta*2, 1), 0)
+	modulate.a = lerp(modulate.a, target_modulate, 0.1)
+	
+func score_event(from: KinematicBody2D):
+	var score_value = 50*SCALE_OF_EVERYTHING + randi()%6*SCALE_OF_EVERYTHING
+	target_score += score_value*SCALE_OF_EVERYTHING
+	
+	trauma += 0.9*SCALE_OF_EVERYTHING
+	
+	target_modulate += 1
+	
+	frozen = true
+	get_node(\"Timer\").start()
+
+	if score_notification_active:
+		stacking_score_notification.set_score(score_value + stacking_score_notification.get_score())
+	else:
+		var score_notification = load(\"res://ScoreNotifications/sn10.tscn\").instance()
+		get_node(\"..\").add_child(score_notification)
+		score_notification.position = from.position#Vector2((rect_size.x/2) - 150 + randf()*300, rect_size.y/2)
+		score_notification.set_score(score_value)
+		score_notification.connect(\"disappear\", self, \"kill_score_notification\", [score_notification])
+		score_notification_active = true
+		stacking_score_notification = score_notification
+		
+func kill_score_notification(which):
+	which.queue_free()
+	stacking_score_notification = null
+	score_notification_active = false
+
+func _on_Timer_timeout():
+	frozen = false"
+
+[node name="counter10" type="Node2D"]
+
+[node name="base" type="Node2D" parent="."]
+script = SubResource( 1 )
+
+[node name="bg" type="StaticBody2D" parent="base"]
+editor/display_folded = true
+
+[node name="bg" type="Sprite" parent="base/bg"]
+scale = Vector2( 10, 10 )
+texture = ExtResource( 1 )
+centered = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="base/bg"]
+visible = false
+position = Vector2( 76, 164 )
+shape = SubResource( 2 )
+
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="base/bg"]
+visible = false
+position = Vector2( 723, 164 )
+shape = SubResource( 2 )
+
+[node name="CollisionShape2D3" type="CollisionShape2D" parent="base/bg"]
+visible = false
+position = Vector2( 399, 582 )
+shape = SubResource( 3 )
+
+[node name="player" type="KinematicBody2D" parent="base"]
+position = Vector2( 301, 454 )
+script = SubResource( 4 )
+
+[node name="Sprite" type="Sprite" parent="base/player"]
+texture = ExtResource( 2 )
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="base/player"]
+shape = SubResource( 5 )
+
+[node name="enemy" type="KinematicBody2D" parent="base" groups=[
+"enemies",
+]]
+position = Vector2( 520, 454 )
+script = SubResource( 6 )
+
+[node name="Sprite" type="Sprite" parent="base/enemy"]
+texture = ExtResource( 2 )
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="base/enemy"]
+shape = SubResource( 5 )
+
+[node name="Camera2D" type="Camera2D" parent="base"]
+anchor_mode = 0
+current = true
+script = SubResource( 7 )
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="counter" type="Label" parent="CanvasLayer"]
+modulate = Color( 0, 0, 0, 1 )
+margin_right = 800.0
+margin_bottom = 147.0
+rect_pivot_offset = Vector2( 400, 73 )
+custom_fonts/font = SubResource( 8 )
+text = "0"
+align = 1
+valign = 1
+script = SubResource( 9 )
+
+[node name="Timer" type="Timer" parent="CanvasLayer/counter"]
+wait_time = 0.5
+one_shot = true
+[connection signal="timeout" from="CanvasLayer/counter/Timer" to="CanvasLayer/counter" method="_on_Timer_timeout"]

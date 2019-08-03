@@ -1,0 +1,90 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://Graphics/TypeO.ttf" type="DynamicFontData" id=1]
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends Node2D
+
+signal disappear
+
+var scale_min: float = 1
+var scale_max: float = 2
+
+var overflow: float = 0
+var label_offset: Vector2 = Vector2(0, 0)
+var shake: float = 7
+
+func _ready():
+	randomize()
+	
+func _process(delta):
+	modulate.a -= delta*2
+	if modulate.a <= 0 :
+		emit_signal(\"disappear\")
+		
+	$Label.rect_scale *= 0.9
+	$Label.rect_scale = Vector2(min(max($Label.rect_scale.x, scale_min), scale_max), min(max($Label.rect_scale.y, scale_min), scale_max))
+	
+	$Label.rect_position -= label_offset
+	
+	label_offset *= 0.98
+	if overflow > 0 :
+		label_offset = Vector2((randf()*2 - 1)*shake, (randf()*2 - 1)*shake) * overflow
+		
+	overflow = min(max(overflow - delta*5, 0), 1)
+		
+	$Label.rect_position += label_offset
+	
+func set_score(value: int) -> void:
+	$Label.text = \"+\" + str(value)
+	modulate.a = 1
+		
+	scale_min += 0.003*value
+	
+	if(scale_min > scale_max):
+		overflow += 0.01*value
+	
+	$Label.rect_scale += Vector2(1, 1)
+	position.y -= 0.01*value
+	
+func get_score() -> int:
+	return int($Label.text.right(1))"
+
+[sub_resource type="DynamicFont" id=2]
+size = 32
+font_data = ExtResource( 1 )
+
+[sub_resource type="Animation" id=3]
+resource_name = "appear"
+length = 0.5
+tracks/0/type = "value"
+tracks/0/path = NodePath("Label:rect_position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.5 ),
+"transitions": PoolRealArray( 0.25, 1 ),
+"update": 0,
+"values": [ Vector2( -40, 0 ), Vector2( -40, -60 ) ]
+}
+
+[node name="score_notification" type="Node2D"]
+script = SubResource( 1 )
+
+[node name="Label" type="Label" parent="."]
+modulate = Color( 0, 0, 0, 1 )
+margin_left = -40.0
+margin_top = -60.0
+margin_right = 40.0
+margin_bottom = -28.0
+rect_pivot_offset = Vector2( 40, 16 )
+custom_fonts/font = SubResource( 2 )
+text = "+2"
+align = 1
+valign = 1
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+autoplay = "appear"
+anims/appear = SubResource( 3 )

@@ -1,0 +1,37 @@
+[gd_scene load_steps=4 format=2]
+
+[sub_resource type="Curve" id=1]
+_data = [ Vector2( 0, 1 ), 0.0, 0.0, 0, 0, Vector2( 1, 0 ), 0.0, 0.0, 0, 0 ]
+
+[sub_resource type="CurveTexture" id=2]
+curve = SubResource( 1 )
+
+[sub_resource type="ParticlesMaterial" id=3]
+flag_disable_z = true
+gravity = Vector3( 0, 0, 0 )
+initial_velocity = 100.0
+orbit_velocity = 0.0
+orbit_velocity_random = 0.0
+damping = 100.0
+scale = 10.0
+scale_random = 1.0
+scale_curve = SubResource( 2 )
+color = Color( 0.113725, 0, 0, 1 )
+hue_variation = 1.0
+hue_variation_random = 1.0
+
+[node name="poof" type="Node2D"]
+
+[node name="Particles2D" type="Particles2D" parent="."]
+rotation = 3.14159
+scale = Vector2( 2, 2 )
+emitting = false
+one_shot = true
+speed_scale = 1.5
+explosiveness = 0.92
+process_material = SubResource( 3 )
+
+[node name="Timer" type="Timer" parent="."]
+one_shot = true
+autostart = true
+[connection signal="timeout" from="Timer" to="." method="queue_free"]
